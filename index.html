@@ -33,7 +33,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
-        /* LIVE-TOR-TICKER LAUFBAND (Edles Schwarz mit PSG-Blauem Rand) */
+        /* LAUFBAND */
         .goal-ticker-tickerbar {
             width: 100%;
             background: #000000;
@@ -60,6 +60,7 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
             border-right: 2px solid var(--psg-gold);
+            white-space: nowrap;
         }
         .tickerbar-content-box {
             overflow: hidden;
@@ -250,7 +251,6 @@
             text-align: left;
         }
 
-        /* Karten-Symbole */
         .card-yellow { display: inline-block; width: 10px; height: 14px; background: #eab308; border-radius: 2px; margin-left: 4px; vertical-align: middle; }
         .card-yellow-red { display: inline-block; width: 14px; height: 14px; background: linear-gradient(135deg, #eab308 50%, #ef4444 50%); border-radius: 2px; margin-left: 4px; vertical-align: middle; }
         .card-red { display: inline-block; width: 10px; height: 14px; background: #ef4444; border-radius: 2px; margin-left: 4px; vertical-align: middle; }
@@ -332,13 +332,11 @@
             </div>
         </div>
 
-        <!-- LIVE-TOR-TICKER LAUFBAND (Direkt unter der Überschrift platziert) -->
+        <!-- LAUFBAND -->
         <div class="goal-ticker-tickerbar" id="goalTickerBar" style="display: none;">
             <div class="tickerbar-label" id="tickerBarTitleLabel">🟢 Live-Ticker</div>
             <div class="tickerbar-content-box">
-                <div class="tickerbar-track" id="tickerBarItemsContainer">
-                    <!-- Ticker-Inhalte werden dynamisch befüllt -->
-                </div>
+                <div class="tickerbar-track" id="tickerBarItemsContainer"></div>
             </div>
         </div>
 
@@ -406,7 +404,7 @@
             </div>
         </div>
 
-        <!-- WEITERE INFO-BOXEN (Mit voll funktionsfähigem Formkönig) -->
+        <!-- WEITERE INFO-BOXEN -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="section-box !mb-0">
                 <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
@@ -468,7 +466,7 @@
                 </button>
             </div>
 
-            <!-- Tabellen-Ansicht für alle Spiele des Spieltags -->
+            <!-- Tabellen-Ansicht -->
             <div class="table-container custom-scroll">
                 <table>
                     <thead>
@@ -517,6 +515,43 @@
                 <div style="display: flex; align-items: center; gap: 5px;"><span style="width: 10px; height: 10px; background: rgba(0, 35, 149, 0.6); border-radius: 2px;"></span> Champions League (1. - 4.)</div>
                 <div style="display: flex; align-items: center; gap: 5px;"><span style="width: 10px; height: 10px; background: rgba(51, 133, 255, 0.5); border-radius: 2px;"></span> Europa League (5. - 6.)</div>
                 <div style="display: flex; align-items: center; gap: 5px;"><span style="width: 10px; height: 10px; background: rgba(237, 41, 57, 0.6); border-radius: 2px;"></span> Abstieg (16. - 18.)</div>
+            </div>
+        </div>
+
+        <!-- ADMIN-BEREICH MIT PASSWORT-SCHUTZ -->
+        <div class="section-box" style="border-color: rgba(237, 41, 57, 0.4);">
+            <div class="section-header" style="background-color: #111827; border-left-color: var(--psg-red);">
+                <span>🔒 Admin-Bereich (Test-Push & Steuerung)</span>
+                <span class="text-xs text-slate-400 font-normal">Passwortgeschützt</span>
+            </div>
+            
+            <!-- Login Formular -->
+            <div id="adminLoginBox" class="flex flex-col md:flex-row gap-3 items-center justify-between bg-[#0b132b] p-4 rounded-xl border border-neutral-800">
+                <span class="text-xs text-slate-300 font-semibold">Admin-Passwort eingeben, um Testfunktionen freizuschalten:</span>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <input type="password" id="adminPasswordInput" placeholder="Passwort (Standard: admin123)" class="bg-[#0f172a] text-white text-xs border border-neutral-700 px-3 py-2 rounded-lg focus:outline-none flex-1 md:w-60">
+                    <button onclick="checkAdminLogin()" class="header-action-btn bg-blue-700 border-blue-500 text-white">Login</button>
+                </div>
+            </div>
+
+            <!-- Admin Content -->
+            <div id="adminContentBox" class="hidden space-y-4 bg-[#0b132b] p-4 rounded-xl border border-neutral-800">
+                <div class="flex justify-between items-center border-b border-neutral-800 pb-2">
+                    <span class="text-xs font-bold text-emerald-400">✔ Admin-Modus aktiv</span>
+                    <button onclick="lockAdmin()" class="text-xs text-rose-400 hover:underline">Abmelden / Sperren</button>
+                </div>
+                <p class="text-xs text-slate-300">Hier kannst du manuell einen Test-Tor-Alarm auslösen. Dieser wird in <strong>sent_goals_psg</strong> gespeichert und im Ticker angezeigt.</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input type="text" id="testHomeTeam" value="Paris Saint-Germain" class="bg-[#0f172a] text-white text-xs border border-neutral-700 px-3 py-2 rounded-lg">
+                    <input type="text" id="testAwayTeam" value="Olympique Marseille" class="bg-[#0f172a] text-white text-xs border border-neutral-700 px-3 py-2 rounded-lg">
+                    <input type="text" id="testScorer" value="Ousmane Dembélé (78')" class="bg-[#0f172a] text-white text-xs border border-neutral-700 px-3 py-2 rounded-lg">
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="triggerManualTestPush()" class="header-action-btn bg-emerald-700 border-emerald-500 text-white flex-1 py-2.5 font-bold">🚀 Test-Tor & Push in DB abfeuern</button>
+                    <button onclick="clearLocalGoalsCache()" class="header-action-btn bg-neutral-800 border-neutral-600 text-slate-300 px-4">Ticker-Cache leeren</button>
+                </div>
+                <div id="adminFeedback" class="text-xs text-blue-400 hidden"></div>
             </div>
         </div>
 
@@ -594,7 +629,7 @@
 
         const historyFacts = [
             "Paris Saint-Germain wurde am 12. August 1970 durch den Zusammenschluss von Paris FC und Stade Saint-Germain gegründet.",
-            "PSG is mit über 10 Meisterschaften Rekordmeister der französischen Ligue 1.",
+            "PSG ist mit über 10 Meisterschaften Rekordmeister der französischen Ligue 1.",
             "Das Heimstadion des Vereins ist das traditionsreiche Parc des Princes im 16. Arrondissement von Paris.",
             "Im Jahr 2020 erreichte PSG erstmals in der Vereinsgeschichte das Finale der UEFA Champions League.",
             "Kylian Mbappé ist mit über 200 Toren Rekordtorschütze in der Geschichte von Paris Saint-Germain."
@@ -714,7 +749,6 @@
             loadGamesForMatchday(currentMatchday);
         }
 
-        // RENDER-FUNKTION FÜR DAS LIVE-TOR-TICKER LAUFBAND
         function renderRecentGoalsTicker() {
             let tickerBar = document.getElementById('goalTickerBar');
             let container = document.getElementById('tickerBarItemsContainer');
@@ -734,8 +768,8 @@
 
             let itemsToDisplay = [];
 
-            if (recentGoalsList.length > 0 && hasLive) {
-                titleLabel.textContent = "🟢 ALLE LIVE-TORE (LIGUE 1)";
+            if (recentGoalsList.length > 0) {
+                titleLabel.textContent = "🟢 LETZTE TORE / TICKER";
                 itemsToDisplay = recentGoalsList.map(g => `<span class="tickerbar-item"><span class="ticker-match-box">${g.text} <span style="color:var(--text-muted); margin-left:8px; font-size:0.75rem;">(${g.time})</span></span></span>`);
             } else {
                 let lastValidMatchday = currentMatchday;
@@ -769,7 +803,6 @@
             container.innerHTML = itemsToDisplay.join('');
         }
 
-        // TRIGGERT FÜR JEDES TEAM BEI JEDEM TOR
         async function checkAllGoalsAndNotify(home, away, hScore, aScore, latestScorer, matchId) {
             if (!latestScorer || latestScorer.includes("Tor") || latestScorer.trim() === "⚽") return;
 
@@ -790,7 +823,6 @@
                 localStorage.setItem('psg_recent_goals_cache', JSON.stringify(recentGoalsList));
                 renderRecentGoalsTicker();
 
-                // Speichert das Tor für ALLE Spiele in die Tabelle "sent_goals_psg"
                 try {
                     await supabaseClient.from('sent_goals_psg').insert([{ 
                         goal_id: uniqueGoalId, 
@@ -866,7 +898,12 @@
                                             }
 
                                             const scoringTeamId = detail.team?.id;
-                                            const isHomeEvent = (scoringTeamId === homeComp.team.id);
+                                            let isHomeEvent = false;
+                                            if (scoringTeamId) {
+                                                isHomeEvent = (scoringTeamId === homeComp.team.id);
+                                            } else if (detail.team?.displayName) {
+                                                isHomeEvent = (detail.team.displayName.toLowerCase() === homeComp.team.displayName.toLowerCase());
+                                            }
 
                                             if (isGoal) {
                                                 if (isHomeEvent) runningHome++;
@@ -904,7 +941,6 @@
                                     });
                                 }
 
-                                // Triggert für JEDES Spiel in der Liga, sobald sich der Spielstand erhöht
                                 if (homeScoreVal !== null && awayScoreVal !== null) {
                                     let prev = previousEspnScores[matchId];
                                     if (prev !== undefined && isLive) {
@@ -1251,7 +1287,7 @@
                 });
             }
 
-            // --- FORM-KÖNIG BERECHNUNG (ALLE LIGUE 1 TEAMS LETZTE 5 SPIELE) ---
+            // --- FORM-KÖNIG BERECHNUNG ---
             let allTeamsStats = {};
             let allTeamsList = [];
             Object.values(leagueMatches).forEach(matchList => {
@@ -1427,22 +1463,40 @@
             if (e.target === document.getElementById('psgMatchesModal')) closePsgMatchesModal();
         }
 
-        // --- PUSH-REGISTRIERUNG SPEICHERT IN "push_subscriptions_psg" ---
+        // --- ECHTE GITHUB SW.JS REGISTRIERUNG ---
         async function togglePushNotifications() {
-            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-                alert("Push-Benachrichtigungen werden von deinem Browser leider nicht unterstützt.");
+            let pushBtn = document.getElementById('push-btn');
+            
+            if (!("Notification" in window)) {
+                alert("Dein Browser unterstützt keine Benachrichtigungen.");
                 return;
             }
+            if (!("serviceWorker" in navigator)) {
+                alert("Service Worker werden in diesem Browser/Kontext nicht unterstützt.");
+                return;
+            }
+
             try {
+                pushBtn.innerText = "⏳ Aktiviere...";
+                
+                // 1. Berechtigung anfragen
                 const permission = await Notification.requestPermission();
                 if (permission !== "granted") {
-                    alert("Push-Berechtigung wurde verweigert.");
+                    alert("Push-Berechtigung wurde vom Browser verweigert.");
+                    pushBtn.innerText = "🔔 Push-Alarm";
                     return;
                 }
 
-                let reg = await navigator.serviceWorker.ready;
+                // 2. Deine echte sw.js von GitHub registrieren
+                const reg = await navigator.serviceWorker.register('./sw.js');
+                await navigator.serviceWorker.ready;
+
+                if (!reg || !reg.pushManager) {
+                    throw new Error("PushManager nicht verfügbar.");
+                }
+
+                // 3. Bestehende Subscription prüfen oder neu anlegen
                 let sub = await reg.pushManager.getSubscription();
-                
                 if (!sub) {
                     const publicVapidKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYTU5Nxh-U';
                     
@@ -1463,21 +1517,92 @@
                     });
                 }
 
-                // Speichert die Browser-Registrierung in der Tabelle "push_subscriptions_psg"
-                const { data, error } = await supabaseClient
+                // 4. In Supabase speichern
+                const { error } = await supabaseClient
                     .from('push_subscriptions_psg')
                     .insert([{ subscription: sub.toJSON() }]);
 
                 if (error) {
-                    console.error("Supabase Fehler beim Speichern:", error);
-                    alert("Fehler beim Speichern der Registrierung: " + error.message);
+                    console.log("Supabase Hinweis:", error);
+                    alert("Push im Browser aktiv! (Hinweis zur DB: " + error.message + ")");
                 } else {
-                    alert("Push-Benachrichtigungen für alle Ligue 1 Spiele wurden erfolgreich in 'push_subscriptions_psg' registriert!");
+                    alert("🔔 Push-Alarm erfolgreich aktiviert & in Supabase gespeichert!");
                 }
+
+                pushBtn.innerText = "✅ Push Aktiv";
+                pushBtn.style.background = "#238636";
             } catch (err) {
-                console.error("Fehler bei der Push-Registrierung:", err);
-                alert("Fehler: " + err.message);
+                console.error("Push Fehler:", err);
+                alert("Push-Fehler: " + err.message);
+                pushBtn.innerText = "🔔 Push-Alarm";
             }
+        }
+
+        // --- ADMIN LOGIN & TEST-PUSH ---
+        function checkAdminLogin() {
+            let pass = document.getElementById('adminPasswordInput').value;
+            if (pass === 'admin123') {
+                document.getElementById('adminLoginBox').classList.add('hidden');
+                document.getElementById('adminContentBox').classList.remove('hidden');
+            } else {
+                alert('Falsches Admin-Passwort!');
+            }
+        }
+
+        function lockAdmin() {
+            document.getElementById('adminLoginBox').classList.remove('hidden');
+            document.getElementById('adminContentBox').classList.add('hidden');
+            document.getElementById('adminPasswordInput').value = '';
+        }
+
+        async function triggerManualTestPush() {
+            let home = document.getElementById('testHomeTeam').value;
+            let away = document.getElementById('testAwayTeam').value;
+            let scorer = document.getElementById('testScorer').value;
+            let feedback = document.getElementById('adminFeedback');
+
+            let timeNow = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            let uniqueTestId = 'test_' + Date.now();
+            
+            let testGoalObj = {
+                id: uniqueTestId,
+                text: `<strong>1:0</strong> — ${home} vs ${away} (${scorer}) [TEST]`,
+                time: timeNow + ' Uhr'
+            };
+
+            recentGoalsList.unshift(testGoalObj);
+            if (recentGoalsList.length > 5) recentGoalsList = recentGoalsList.slice(0, 5);
+            localStorage.setItem('psg_recent_goals_cache', JSON.stringify(recentGoalsList));
+            renderRecentGoalsTicker();
+
+            try {
+                const { error } = await supabaseClient.from('sent_goals_psg').insert([{ 
+                    goal_id: uniqueTestId, 
+                    match_info: `${home} vs ${away} (TEST)`, 
+                    score: `1:0`, 
+                    scorer: scorer 
+                }]);
+
+                feedback.classList.remove('hidden');
+                if (error) {
+                    feedback.innerHTML = `⚠️ Im Ticker angezeigt, aber DB-Fehler: ${error.message}`;
+                    feedback.style.color = '#f85149';
+                } else {
+                    feedback.innerHTML = `✅ Test-Tor erfolgreich in <strong>sent_goals_psg</strong> gespeichert & im Ticker aktiv!`;
+                    feedback.style.color = '#3fb950';
+                }
+            } catch (e) {
+                feedback.classList.remove('hidden');
+                feedback.innerHTML = `❌ Fehler: ${e.message}`;
+                feedback.style.color = '#f85149';
+            }
+        }
+
+        function clearLocalGoalsCache() {
+            localStorage.removeItem('psg_recent_goals_cache');
+            recentGoalsList = [];
+            renderRecentGoalsTicker();
+            alert("Ticker-Cache wurde geleert.");
         }
 
         document.addEventListener("DOMContentLoaded", async () => {
