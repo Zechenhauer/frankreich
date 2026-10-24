@@ -327,7 +327,7 @@
             <div class="flex items-center gap-3 mt-1">
                 <span class="text-xs text-slate-400">⚡ Web-App & Management: Jürgen Schützendorf</span>
                 <div id="live-indicator" class="hidden items-center gap-2 bg-red-950 border border-red-700 text-red-400 px-3 py-1 rounded-full text-xs font-bold">
-                    <span class="live-dot"></span> ⚡ ESPN Live-Ticker Aktiv
+                    <span class="live-dot"></span> ⚡ ESPN Live-Ticker Aktiv (Alle Spiele)
                 </div>
             </div>
         </div>
@@ -594,7 +594,7 @@
 
         const historyFacts = [
             "Paris Saint-Germain wurde am 12. August 1970 durch den Zusammenschluss von Paris FC und Stade Saint-Germain gegründet.",
-            "PSG ist mit über 10 Meisterschaften Rekordmeister der französischen Ligue 1.",
+            "PSG is mit über 10 Meisterschaften Rekordmeister der französischen Ligue 1.",
             "Das Heimstadion des Vereins ist das traditionsreiche Parc des Princes im 16. Arrondissement von Paris.",
             "Im Jahr 2020 erreichte PSG erstmals in der Vereinsgeschichte das Finale der UEFA Champions League.",
             "Kylian Mbappé ist mit über 200 Toren Rekordtorschütze in der Geschichte von Paris Saint-Germain."
@@ -735,7 +735,7 @@
             let itemsToDisplay = [];
 
             if (recentGoalsList.length > 0 && hasLive) {
-                titleLabel.textContent = "🟢 LIVE-TORE";
+                titleLabel.textContent = "🟢 ALLE LIVE-TORE (LIGUE 1)";
                 itemsToDisplay = recentGoalsList.map(g => `<span class="tickerbar-item"><span class="ticker-match-box">${g.text} <span style="color:var(--text-muted); margin-left:8px; font-size:0.75rem;">(${g.time})</span></span></span>`);
             } else {
                 let lastValidMatchday = currentMatchday;
@@ -769,6 +769,7 @@
             container.innerHTML = itemsToDisplay.join('');
         }
 
+        // TRIGGERT FÜR JEDES TEAM BEI JEDEM TOR
         async function checkAllGoalsAndNotify(home, away, hScore, aScore, latestScorer, matchId) {
             if (!latestScorer || latestScorer.includes("Tor") || latestScorer.trim() === "⚽") return;
 
@@ -788,6 +789,18 @@
                 if (recentGoalsList.length > 5) recentGoalsList = recentGoalsList.slice(0, 5);
                 localStorage.setItem('psg_recent_goals_cache', JSON.stringify(recentGoalsList));
                 renderRecentGoalsTicker();
+
+                // Speichert das Tor für ALLE Spiele in die Tabelle "sent_goals_psg"
+                try {
+                    await supabaseClient.from('sent_goals_psg').insert([{ 
+                        goal_id: uniqueGoalId, 
+                        match_info: `${home} vs ${away}`, 
+                        score: `${hScore}:${aScore}`, 
+                        scorer: cleanPlayer 
+                    }]);
+                } catch (dbErr) {
+                    console.log("Fehler beim Speichern in sent_goals_psg:", dbErr);
+                }
             }
         }
 
@@ -891,6 +904,7 @@
                                     });
                                 }
 
+                                // Triggert für JEDES Spiel in der Liga, sobald sich der Spielstand erhöht
                                 if (homeScoreVal !== null && awayScoreVal !== null) {
                                     let prev = previousEspnScores[matchId];
                                     if (prev !== undefined && isLive) {
@@ -1209,7 +1223,7 @@
                     <div class="text-blue-400 font-semibold mt-1">${next.home} vs. ${next.away}</div>
                 `;
             } else {
-                nextDiv.innerHTML = "Kein anstehendes Spiel gefunden.";
+                lastDiv.innerHTML = "Kein anstehendes Spiel gefunden.";
             }
 
             let formContainer = document.getElementById('form-badges-container');
@@ -1413,6 +1427,7 @@
             if (e.target === document.getElementById('psgMatchesModal')) closePsgMatchesModal();
         }
 
+        // --- PUSH-REGISTRIERUNG SPEICHERT IN "push_subscriptions_psg" ---
         async function togglePushNotifications() {
             if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
                 alert("Push-Benachrichtigungen werden von deinem Browser leider nicht unterstützt.");
@@ -1424,9 +1439,44 @@
                     alert("Push-Berechtigung wurde verweigert.");
                     return;
                 }
-                alert("Push-Benachrichtigungen für PSG sind erfolgreich aktiviert!");
+
+                let reg = await navigator.serviceWorker.ready;
+                let sub = await reg.pushManager.getSubscription();
+                
+                if (!sub) {
+                    const publicVapidKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYTU5Nxh-U';
+                    
+                    function urlBase64ToUint8Array(base64String) {
+                        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+                        const rawData = window.atob(base64);
+                        const outputArray = new Uint8Array(rawData.length);
+                        for (let i = 0; i < rawData.length; ++i) {
+                            outputArray[i] = rawData.charCodeAt(i);
+                        }
+                        return outputArray;
+                    }
+
+                    sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+                    });
+                }
+
+                // Speichert die Browser-Registrierung in der Tabelle "push_subscriptions_psg"
+                const { data, error } = await supabaseClient
+                    .from('push_subscriptions_psg')
+                    .insert([{ subscription: sub.toJSON() }]);
+
+                if (error) {
+                    console.error("Supabase Fehler beim Speichern:", error);
+                    alert("Fehler beim Speichern der Registrierung: " + error.message);
+                } else {
+                    alert("Push-Benachrichtigungen für alle Ligue 1 Spiele wurden erfolgreich in 'push_subscriptions_psg' registriert!");
+                }
             } catch (err) {
-                console.error("Fehler beim Aktivieren der Push-Benachrichtigungen:", err);
+                console.error("Fehler bei der Push-Registrierung:", err);
+                alert("Fehler: " + err.message);
             }
         }
 
