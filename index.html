@@ -9,6 +9,8 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23002395%22/><text x=%2250%22 y=%2270%22 font-size=%2260%22 text-anchor=%22middle%22>⚽</text></svg>">
     <link rel="apple-touch-icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23002395%22/><text x=%2250%22 y=%2270%22 font-size=%2260%22 text-anchor=%22middle%22>⚽</text></svg>">
 
+    <!-- Supabase Client Bibliothek -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -22,12 +24,83 @@
             --psg-blue: #002395;
             --psg-red: #ed2939;
             --psg-gold: #c9b037;
+            --psg-bright-blue: #3b82f6;
         }
 
         body {
             background-color: var(--bg-color);
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* LIVE-TOR-TICKER LAUFBAND (Edles Schwarz mit PSG-Blauem Rand) */
+        .goal-ticker-tickerbar {
+            width: 100%;
+            background: #000000;
+            border: 1px solid var(--psg-blue);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            height: 38px;
+            position: relative;
+            box-shadow: 0 0 15px rgba(0, 35, 149, 0.4);
+        }
+        .tickerbar-label {
+            background: var(--psg-blue);
+            color: #ffffff;
+            font-size: 0.72rem;
+            font-weight: bold;
+            padding: 0 12px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            z-index: 2;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-right: 2px solid var(--psg-gold);
+        }
+        .tickerbar-content-box {
+            overflow: hidden;
+            white-space: nowrap;
+            flex: 1;
+            position: relative;
+        }
+        .tickerbar-track {
+            display: inline-block;
+            white-space: nowrap;
+            animation: ticker-scroll 95s linear infinite;
+            font-size: 0.88rem;
+            color: #ffffff;
+            font-weight: 500;
+        }
+        .tickerbar-track:hover {
+            animation-play-state: paused;
+        }
+        .tickerbar-item {
+            display: inline-block;
+            padding: 0 25px;
+        }
+        .ticker-match-box {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0, 35, 149, 0.2);
+            border: 1px solid rgba(0, 35, 149, 0.4);
+            padding: 4px 12px;
+            border-radius: 4px;
+            margin: 0 5px;
+            color: #ffffff;
+        }
+        .ticker-match-box.psg-team-ticker {
+            background: rgba(0, 35, 149, 0.4);
+            border: 1px solid var(--psg-bright-blue);
+            font-weight: bold;
+            color: var(--psg-bright-blue);
+        }
+        @keyframes ticker-scroll {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
         }
 
         .custom-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
@@ -177,6 +250,11 @@
             text-align: left;
         }
 
+        /* Karten-Symbole */
+        .card-yellow { display: inline-block; width: 10px; height: 14px; background: #eab308; border-radius: 2px; margin-left: 4px; vertical-align: middle; }
+        .card-yellow-red { display: inline-block; width: 14px; height: 14px; background: linear-gradient(135deg, #eab308 50%, #ef4444 50%); border-radius: 2px; margin-left: 4px; vertical-align: middle; }
+        .card-red { display: inline-block; width: 10px; height: 14px; background: #ef4444; border-radius: 2px; margin-left: 4px; vertical-align: middle; }
+
         /* Modal Styles */
         .modal-overlay {
             position: fixed;
@@ -237,7 +315,7 @@
     <div class="w-full max-w-[950px]">
         
         <!-- HEADER MIT WAPPEN -->
-        <div class="flex flex-col items-center border-b border-neutral-800 pb-5 mb-6 text-center gap-2">
+        <div class="flex flex-col items-center border-b border-neutral-800 pb-5 mb-5 text-center gap-2">
             <div class="flex items-center gap-3">
                 <img id="psgHeaderLogo" src="https://a.espncdn.com/i/teamlogos/soccer/500/160.png" alt="PSG" class="w-12 h-12 object-contain drop-shadow">
                 <h1 class="text-2xl md:text-3xl font-black tracking-wide flex items-center gap-2 text-white">
@@ -250,6 +328,16 @@
                 <span class="text-xs text-slate-400">⚡ Web-App & Management: Jürgen Schützendorf</span>
                 <div id="live-indicator" class="hidden items-center gap-2 bg-red-950 border border-red-700 text-red-400 px-3 py-1 rounded-full text-xs font-bold">
                     <span class="live-dot"></span> ⚡ ESPN Live-Ticker Aktiv
+                </div>
+            </div>
+        </div>
+
+        <!-- LIVE-TOR-TICKER LAUFBAND (Direkt unter der Überschrift platziert) -->
+        <div class="goal-ticker-tickerbar" id="goalTickerBar" style="display: none;">
+            <div class="tickerbar-label" id="tickerBarTitleLabel">🟢 Live-Ticker</div>
+            <div class="tickerbar-content-box">
+                <div class="tickerbar-track" id="tickerBarItemsContainer">
+                    <!-- Ticker-Inhalte werden dynamisch befüllt -->
                 </div>
             </div>
         </div>
@@ -318,13 +406,14 @@
             </div>
         </div>
 
-        <!-- WEITERE INFO-BOXEN -->
+        <!-- WEITERE INFO-BOXEN (Mit voll funktionsfähigem Formkönig) -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="section-box !mb-0">
-                <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">🏟️ Heim vs. Auswärts</div>
-                <div id="home-away-stats" class="text-sm space-y-2 text-slate-300">
-                    <div>Heim: Lade...</div>
-                    <div>Auswärts: Lade...</div>
+                <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                    <span>👑 Form-König (letzte 5 Spiele)</span>
+                </div>
+                <div id="formKingWidget" class="text-xs space-y-2 text-slate-300">
+                    <div>Wird berechnet...</div>
                 </div>
             </div>
             <div class="section-box !mb-0">
@@ -358,7 +447,7 @@
             <div class="section-header">
                 <span id="matchdayTableHeader">Spieltag — Spiele & Ergebnisse</span>
                 <div class="flex gap-2">
-                    <button class="header-action-btn" onclick="alert('Push-Alarm aktiv!')">🔔 Push-Alarm</button>
+                    <button class="header-action-btn bg-emerald-700 border-emerald-500 text-white" onclick="togglePushNotifications()" id="push-btn">🔔 Push-Alarm</button>
                     <button onclick="refreshAllData()" class="header-action-btn">🔄 Aktualisieren</button>
                 </div>
             </div>
@@ -491,10 +580,17 @@
 
     <!-- JAVASCRIPT LOGIK -->
     <script>
+        const SUPABASE_URL = 'https://lhusylpjnujlqomougmg.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_yXEueWILvAq-Vm2VfTuYyg_BIQeE1KK';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         let currentMatchday = 7;
         let leagueMatches = {};
         let allStandingsEntries = [];
         let autoRefreshTimer = null;
+        let recentGoalsList = JSON.parse(localStorage.getItem('psg_recent_goals_cache') || '[]');
+        let teamLogos = {};
+        let previousEspnScores = {};
 
         const historyFacts = [
             "Paris Saint-Germain wurde am 12. August 1970 durch den Zusammenschluss von Paris FC und Stade Saint-Germain gegründet.",
@@ -618,6 +714,83 @@
             loadGamesForMatchday(currentMatchday);
         }
 
+        // RENDER-FUNKTION FÜR DAS LIVE-TOR-TICKER LAUFBAND
+        function renderRecentGoalsTicker() {
+            let tickerBar = document.getElementById('goalTickerBar');
+            let container = document.getElementById('tickerBarItemsContainer');
+            let titleLabel = document.getElementById('tickerBarTitleLabel');
+
+            if (!tickerBar || !container) return;
+
+            let hasLive = false;
+            if (leagueMatches) {
+                for (let s in leagueMatches) {
+                    if (leagueMatches[s].some(m => m.isLive)) {
+                        hasLive = true;
+                        break;
+                    }
+                }
+            }
+
+            let itemsToDisplay = [];
+
+            if (recentGoalsList.length > 0 && hasLive) {
+                titleLabel.textContent = "🟢 LIVE-TORE";
+                itemsToDisplay = recentGoalsList.map(g => `<span class="tickerbar-item"><span class="ticker-match-box">${g.text} <span style="color:var(--text-muted); margin-left:8px; font-size:0.75rem;">(${g.time})</span></span></span>`);
+            } else {
+                let lastValidMatchday = currentMatchday;
+                let foundMatches = [];
+                for (let s = currentMatchday; s >= 1; s--) {
+                    if (leagueMatches[s] && leagueMatches[s].some(m => m.homeScore !== null && m.homeScore !== undefined)) {
+                        lastValidMatchday = s;
+                        foundMatches = leagueMatches[s];
+                        break;
+                    }
+                }
+                if (foundMatches.length === 0 && leagueMatches[1]) {
+                    foundMatches = leagueMatches[1];
+                }
+
+                titleLabel.textContent = `⚽ SPIELTAG ${lastValidMatchday} (ERGEBNISSE)`;
+                itemsToDisplay = foundMatches.map(m => {
+                    let isPsg = isPsgTeam(m.home) || isPsgTeam(m.away);
+                    let boxClass = isPsg ? "ticker-match-box psg-team-ticker" : "ticker-match-box";
+                    let scoreStr = (m.homeScore !== null && m.homeScore !== undefined) ? `${m.homeScore}:${m.awayScore}` : 'vs';
+                    return `<span class="tickerbar-item"><span class="${boxClass}"><strong>${m.home}</strong> <span style="color:#ffffff; margin:0 6px;">${scoreStr}</span> <strong>${m.away}</strong></span></span>`;
+                });
+            }
+
+            if (itemsToDisplay.length === 0) {
+                tickerBar.style.display = 'none';
+                return;
+            }
+
+            tickerBar.style.display = 'flex';
+            container.innerHTML = itemsToDisplay.join('');
+        }
+
+        async function checkAllGoalsAndNotify(home, away, hScore, aScore, latestScorer, matchId) {
+            if (!latestScorer || latestScorer.includes("Tor") || latestScorer.trim() === "⚽") return;
+
+            let uniqueGoalId = `${matchId}_${hScore}:${aScore}_${latestScorer}`;
+            let cleanPlayer = latestScorer.replace(/⚽\s*/, '').replace(/\(\d+['']\)/, '').replace('(Pen)', '').replace('(ET)', '').replace(/\[\d+:\d+\]/, '').trim();
+            let minStr = latestScorer.match(/\(\d+['']\)/) ? ` ${latestScorer.match(/\(\d+['']\)/)[0]}` : '';
+            let timeNow = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+            let goalObject = {
+                id: uniqueGoalId,
+                text: `<strong>${hScore}:${aScore}</strong> — ${home} vs ${away} (${cleanPlayer}${minStr})`,
+                time: timeNow + ' Uhr'
+            };
+
+            if (!recentGoalsList.some(g => g.id === uniqueGoalId)) {
+                recentGoalsList.unshift(goalObject);
+                if (recentGoalsList.length > 5) recentGoalsList = recentGoalsList.slice(0, 5);
+                localStorage.setItem('psg_recent_goals_cache', JSON.stringify(recentGoalsList));
+                renderRecentGoalsTicker();
+            }
+        }
+
         async function loadAllMatchdays() {
             let fetchPromises = [];
             for (let mw = 1; mw <= 34; mw++) {
@@ -642,6 +815,9 @@
                                 const awayComp = comp.competitors.find(c => c.homeAway === 'away');
                                 if (!homeComp || !awayComp) return;
 
+                                if (homeComp.team.logo) teamLogos[homeComp.team.displayName.trim().toLowerCase()] = homeComp.team.logo;
+                                if (awayComp.team.logo) teamLogos[awayComp.team.displayName.trim().toLowerCase()] = awayComp.team.logo;
+
                                 const statusType = ev.status.type.state;
                                 const isLive = statusType === 'in';
                                 if (isLive) hasLive = true;
@@ -649,15 +825,24 @@
                                 let matchDateObj = new Date(ev.date);
                                 let dateStr = !isNaN(matchDateObj.getTime()) ? matchDateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "";
                                 let timeStr = !isNaN(matchDateObj.getTime()) ? matchDateObj.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : "21:00";
+                                let liveMinute = ev.status?.displayClock || (ev.status?.period ? `${ev.status.period}. Halbzeit` : "");
 
-                                let goals = [];
+                                let eventsList = [];
                                 let runningHome = 0;
                                 let runningAway = 0;
+                                let latestScorerText = "";
+                                let homeScoreVal = homeComp.score !== undefined && homeComp.score !== "" && statusType !== 'pre' ? parseInt(homeComp.score) : null;
+                                let awayScoreVal = awayComp.score !== undefined && awayComp.score !== "" && statusType !== 'pre' ? parseInt(awayComp.score) : null;
+                                let matchId = 'espn_' + ev.id;
 
                                 if (comp.details && Array.isArray(comp.details)) {
                                     comp.details.sort((a, b) => (parseInt(a.clock?.secs || 0) - parseInt(b.clock?.secs || 0)));
                                     comp.details.forEach(detail => {
-                                        if (detail.type?.text === "Goal" || detail.scoringPlay || detail.goalValue > 0) {
+                                        const typeText = detail.type?.text?.toLowerCase() || "";
+                                        const isGoal = typeText === "goal" || detail.scoringPlay || detail.goalValue > 0;
+                                        const isCard = typeText === "yellow card" || typeText === "red card" || typeText === "card";
+
+                                        if (isGoal || isCard) {
                                             let playerName = detail.scorer?.athlete?.displayName 
                                                 || detail.athlete?.displayName 
                                                 || (detail.athletesInvolved && detail.athletesInvolved[0]?.displayName)
@@ -668,33 +853,52 @@
                                             }
 
                                             const scoringTeamId = detail.team?.id;
-                                            const isHomeGoal = (scoringTeamId === homeComp.team.id);
-                                            const isAwayGoal = (scoringTeamId === awayComp.team.id);
+                                            const isHomeEvent = (scoringTeamId === homeComp.team.id);
 
-                                            if (isHomeGoal) runningHome++;
-                                            if (isAwayGoal) runningAway++;
+                                            if (isGoal) {
+                                                if (isHomeEvent) runningHome++;
+                                                else runningAway++;
+                                            }
 
-                                            if (!playerName) playerName = isHomeGoal ? homeComp.team.displayName : awayComp.team.displayName;
-
-                                            let teamName = isHomeGoal ? homeComp.team.displayName : awayComp.team.displayName;
-                                            let teamLogo = detail.team?.logo || (isHomeGoal ? homeComp.team.logo : awayComp.team.logo);
+                                            if (!playerName) playerName = isHomeEvent ? homeComp.team.displayName : awayComp.team.displayName;
                                             let clock = detail.clock?.displayValue || "";
                                             if (clock && !clock.endsWith("'")) clock += "'";
 
-                                            let notes = "";
-                                            if (detail.penalty) notes = " (Pen)";
-                                            if (detail.ownGoal) notes = " (ET)";
+                                            let cardType = "";
+                                            if (isCard) {
+                                                let cardText = (detail.text || "").toLowerCase();
+                                                if (cardText.includes("yellow-red") || cardText.includes("gelb-rot")) cardType = "yellow-red";
+                                                else if (cardText.includes("red") || cardText.includes("rot")) cardType = "red";
+                                                else cardType = "yellow";
+                                            }
 
-                                            goals.push({
-                                                text: `[${runningHome}:${runningAway}] ${playerName} (${clock})${notes}`,
+                                            if (isGoal) {
+                                                latestScorerText = `[${runningHome}:${runningAway}] ${playerName} (${clock})`;
+                                            }
+
+                                            eventsList.push({
+                                                isGoal: isGoal,
+                                                isCard: isCard,
+                                                cardType: cardType,
+                                                text: isGoal ? `[${runningHome}:${runningAway}] ${playerName} (${clock})` : `${playerName} (${clock})`,
                                                 playerName: playerName,
-                                                team: teamName,
-                                                logo: teamLogo,
+                                                team: isHomeEvent ? homeComp.team.displayName : awayComp.team.displayName,
+                                                logo: detail.team?.logo || (isHomeEvent ? homeComp.team.logo : awayComp.team.logo),
                                                 minute: clock,
-                                                isHome: isHomeGoal
+                                                isHome: isHomeEvent
                                             });
                                         }
                                     });
+                                }
+
+                                if (homeScoreVal !== null && awayScoreVal !== null) {
+                                    let prev = previousEspnScores[matchId];
+                                    if (prev !== undefined && isLive) {
+                                        if (homeScoreVal > prev.home || awayScoreVal > prev.away) {
+                                            checkAllGoalsAndNotify(homeComp.team.displayName, awayComp.team.displayName, homeScoreVal, awayScoreVal, latestScorerText, matchId);
+                                        }
+                                    }
+                                    previousEspnScores[matchId] = { home: homeScoreVal, away: awayScoreVal };
                                 }
 
                                 matches.push({
@@ -704,12 +908,13 @@
                                     awayLogo: awayComp.team.logo || '',
                                     date: dateStr,
                                     time: timeStr,
-                                    homeScore: homeComp.score !== undefined && statusType !== 'pre' ? parseInt(homeComp.score) : null,
-                                    awayScore: awayComp.score !== undefined && statusType !== 'pre' ? parseInt(awayComp.score) : null,
+                                    homeScore: homeScoreVal,
+                                    awayScore: awayScoreVal,
                                     isFinished: statusType === 'post',
                                     isLive: isLive,
+                                    liveMinute: liveMinute,
                                     dateTime: ev.date,
-                                    goals: goals
+                                    events: eventsList
                                 });
                             });
 
@@ -750,6 +955,7 @@
             updatePsgDashboard();
             updateTop3ScorersWidget();
             loadGamesForMatchday(currentMatchday);
+            renderRecentGoalsTicker();
         }
 
         function loadGamesForMatchday(mw) {
@@ -768,7 +974,7 @@
                 
                 let statusBadge = `<span style="background: rgba(30,41,59,0.8); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;">[Endstand]</span>`;
                 if (m.isLive) {
-                    statusBadge = `<span style="background: rgba(127,29,29,0.8); color: #f87171; border: 1px solid rgba(248,113,113,0.4); padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;" class="live-dot">🔴 LIVE</span>`;
+                    statusBadge = `<span style="background: rgba(127,29,29,0.8); color: #f87171; border: 1px solid rgba(248,113,113,0.4); padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold;" class="live-dot">🔴 LIVE (${m.liveMinute || 'Abpfiff'})</span>`;
                 } else if (!hasResult && !m.isFinished) {
                     statusBadge = `<span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Ausstehend</span>`;
                 }
@@ -778,13 +984,23 @@
                 let scoreDisplay = hasResult ? `${homeScoreStr}:${awayScoreStr}` : '<span style="color: var(--text-muted); font-weight: normal; font-size: 1rem;">vs</span>';
                 let isPsgMatch = isPsgTeam(m.home) || isPsgTeam(m.away);
 
-                let homeGoalsHtml = '';
-                let awayGoalsHtml = '';
-                if (m.goals && m.goals.length > 0) {
-                    let homeItems = m.goals.filter(g => g.isHome).map(g => `<div style="font-size: 0.85rem; color: #60a5fa; margin-top: 3px; text-align: right;">⚽ [${g.text.split(']')[0].replace('[','')}] ${g.playerName} (${g.minute})</div>`).join('');
-                    let awayItems = m.goals.filter(g => !g.isHome).map(g => `<div style="font-size: 0.85rem; color: #60a5fa; margin-top: 3px; text-align: left;">[${g.text.split(']')[0].replace('[','')}] ${g.playerName} (${g.minute}) ⚽</div>`).join('');
-                    if (homeItems) homeGoalsHtml = `<div style="margin-top: 6px;">${homeItems}</div>`;
-                    if (awayItems) awayGoalsHtml = `<div style="margin-top: 6px;">${awayItems}</div>`;
+                let homeEventsHtml = '';
+                let awayEventsHtml = '';
+                if (m.events && m.events.length > 0) {
+                    let homeItems = m.events.filter(e => e.isHome).map(e => {
+                        if (e.isGoal) return `<div style="font-size: 0.85rem; color: #60a5fa; margin-top: 3px; text-align: right;">⚽ ${e.text}</div>`;
+                        let cardIcon = e.cardType === 'red' ? '<span class="card-red"></span>' : (e.cardType === 'yellow-red' ? '<span class="card-yellow-red"></span>' : '<span class="card-yellow"></span>');
+                        return `<div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px; text-align: right;">${e.playerName} (${e.minute})${cardIcon}</div>`;
+                    }).join('');
+
+                    let awayItems = m.events.filter(e => !e.isHome).map(e => {
+                        if (e.isGoal) return `<div style="font-size: 0.85rem; color: #60a5fa; margin-top: 3px; text-align: left;">${e.text} ⚽</div>`;
+                        let cardIcon = e.cardType === 'red' ? '<span class="card-red"></span>' : (e.cardType === 'yellow-red' ? '<span class="card-yellow-red"></span>' : '<span class="card-yellow"></span>');
+                        return `<div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px; text-align: left;">${cardIcon}${e.playerName} (${e.minute})</div>`;
+                    }).join('');
+
+                    if (homeItems) homeEventsHtml = `<div style="margin-top: 6px;">${homeItems}</div>`;
+                    if (awayItems) awayEventsHtml = `<div style="margin-top: 6px;">${awayItems}</div>`;
                 }
 
                 let tr = document.createElement('tr');
@@ -800,7 +1016,7 @@
                             <span style="color: ${isPsgTeam(m.home) ? '#60a5fa' : '#fff'};">${m.home}</span>
                             <img src="${m.homeLogo}" class="team-mini-logo" alt="Logo">
                         </div>
-                        ${homeGoalsHtml}
+                        ${homeEventsHtml}
                     </td>
                     <td style="text-align: center;">
                         <div style="font-weight: 900; font-size: 1.25rem; color: #fff;">${scoreDisplay}</div>
@@ -811,7 +1027,7 @@
                             <img src="${m.awayLogo}" class="team-mini-logo" alt="Logo">
                             <span style="color: ${isPsgTeam(m.away) ? '#60a5fa' : '#fff'};">${m.away}</span>
                         </div>
-                        ${awayGoalsHtml}
+                        ${awayEventsHtml}
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -885,12 +1101,12 @@
             for (let mw = 1; mw <= 34; mw++) {
                 let matches = leagueMatches[mw] || [];
                 matches.forEach(m => {
-                    if (m.goals) {
-                        m.goals.forEach(g => {
-                            if (g.playerName && g.playerName.toLowerCase() !== 'tor') {
-                                let name = g.playerName;
-                                let team = g.team;
-                                let logo = g.logo;
+                    if (m.events) {
+                        m.events.forEach(e => {
+                            if (e.isGoal && e.playerName && e.playerName.toLowerCase() !== 'tor') {
+                                let name = e.playerName;
+                                let team = e.team;
+                                let logo = e.logo;
 
                                 if (!aggregatedScorers[name]) {
                                     aggregatedScorers[name] = { count: 0, team: team, logo: logo };
@@ -1021,28 +1237,92 @@
                 });
             }
 
-            let homeWins = 0, homeDraws = 0, homeLosses = 0, homePts = 0;
-            let awayWins = 0, awayDraws = 0, awayLosses = 0, awayPts = 0;
-            pastMatches.forEach(m => {
-                let isHome = isPsgTeam(m.home);
-                let psgGoals = isHome ? m.homeScore : m.awayScore;
-                let oppGoals = isHome ? m.awayScore : m.homeScore;
-                if (psgGoals !== null && oppGoals !== null) {
-                    if (isHome) {
-                        if (psgGoals > oppGoals) { homeWins++; homePts += 3; }
-                        else if (psgGoals === oppGoals) { homeDraws++; homePts += 1; }
-                        else { homeLosses++; }
-                    } else {
-                        if (psgGoals > oppGoals) { awayWins++; awayPts += 3; }
-                        else if (psgGoals === oppGoals) { awayDraws++; awayPts += 1; }
-                        else { awayLosses++; }
-                    }
+            // --- FORM-KÖNIG BERECHNUNG (ALLE LIGUE 1 TEAMS LETZTE 5 SPIELE) ---
+            let allTeamsStats = {};
+            let allTeamsList = [];
+            Object.values(leagueMatches).forEach(matchList => {
+                if (Array.isArray(matchList)) {
+                    matchList.forEach(m => {
+                        if (!allTeamsList.includes(m.home)) allTeamsList.push(m.home);
+                        if (!allTeamsList.includes(m.away)) allTeamsList.push(m.away);
+                    });
                 }
             });
-            document.getElementById('home-away-stats').innerHTML = `
-                <div>Heim: ${homeWins}S - ${homeDraws}U - ${homeLosses}N (${homePts} Pkt)</div>
-                <div>Auswärts: ${awayWins}S - ${awayDraws}U - ${awayLosses}N (${awayPts} Pkt)</div>
-            `;
+
+            allTeamsList.forEach(t => { allTeamsStats[t] = { name: t, matches: [] }; });
+
+            Object.values(leagueMatches).forEach(matchList => {
+                if (!Array.isArray(matchList)) return;
+                matchList.forEach(m => {
+                    if (m.homeScore === null || m.homeScore === undefined || m.awayScore === null || m.awayScore === undefined) return;
+                    let h = m.home, a = m.away;
+                    if (!allTeamsStats[h] || !allTeamsStats[a]) return;
+
+                    let hG = m.homeScore, aG = m.awayScore;
+                    let hRes = hG > aG ? 'S' : (hG === aG ? 'U' : 'N');
+                    let hPts = hG > aG ? 3 : (hG === aG ? 1 : 0);
+                    allTeamsStats[h].matches.push({ date: m.dateTime || m.date, pts: hPts, gf: hG, ga: aG, res: hRes });
+
+                    let aRes = aG > hG ? 'S' : (aG === hG ? 'U' : 'N');
+                    let aPts = aG > hG ? 3 : (aG === hG ? 1 : 0);
+                    allTeamsStats[a].matches.push({ date: m.dateTime || m.date, pts: aPts, gf: aG, ga: hG, res: aRes });
+                });
+            });
+
+            let bestTeam = null;
+            let maxPtsL5 = -1;
+            let bestToreL5 = "0:0";
+            let bestSerieStr = "";
+
+            Object.values(allTeamsStats).forEach(team => {
+                team.matches.sort((x, y) => new Date(y.date || 0) - new Date(x.date || 0));
+                let last5 = team.matches.slice(0, 5);
+                if (last5.length === 0) return;
+
+                let ptsSum = last5.reduce((acc, cur) => acc + cur.pts, 0);
+                let gfSum = last5.reduce((acc, cur) => acc + cur.gf, 0);
+                let gaSum = last5.reduce((acc, cur) => acc + cur.ga, 0);
+                let toreStr = `${gfSum}:${gaSum}`;
+                let serieStr = last5.slice().reverse().map(c => c.res).join('');
+
+                if (ptsSum > maxPtsL5) {
+                    maxPtsL5 = ptsSum;
+                    bestTeam = team.name;
+                    bestToreL5 = toreStr;
+                    bestSerieStr = serieStr;
+                }
+            });
+
+            let formKingWidget = document.getElementById('formKingWidget');
+            if (bestTeam) {
+                let logoUrl = teamLogos[bestTeam.trim().toLowerCase()] || "";
+                let logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${bestTeam}" style="width: 20px; height: 20px; object-fit: contain; vertical-align: middle; margin-right: 6px; display: inline-block;">` : '';
+                
+                let coloredSerie = bestSerieStr.split('').map(char => {
+                    let color = char === 'S' ? '#3fb950' : (char === 'U' ? '#e3b341' : '#f85149');
+                    return `<span style="color: ${color}; font-weight: bold;">${char}</span>`;
+                }).join('');
+
+                formKingWidget.innerHTML = `
+                    <div style="display: flex; align-items: center; font-weight: bold; font-size: 0.95rem; color: #ffffff; margin-bottom: 6px;">
+                        ${logoHtml}<span>${bestTeam}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 3px;">
+                        <span style="color: var(--text-muted);">Punkte (L5):</span>
+                        <strong style="color: #3fb950;">${maxPtsL5} Pkt</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 3px;">
+                        <span style="color: var(--text-muted);">Tore (L5):</span>
+                        <strong style="color: #e3b341;">${bestToreL5}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                        <span style="color: var(--text-muted);">Serie:</span>
+                        <div style="letter-spacing: 2px;">${coloredSerie}</div>
+                    </div>
+                `;
+            } else {
+                formKingWidget.innerHTML = '<span style="color: var(--text-muted); font-size: 0.8rem;">Noch keine Spieldaten verfügbar</span>';
+            }
         }
 
         function openPsgMatchesModal() {
@@ -1131,6 +1411,23 @@
         window.onclick = function(e) {
             if (e.target === document.getElementById('scorersModal')) closeScorersModal();
             if (e.target === document.getElementById('psgMatchesModal')) closePsgMatchesModal();
+        }
+
+        async function togglePushNotifications() {
+            if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+                alert("Push-Benachrichtigungen werden von deinem Browser leider nicht unterstützt.");
+                return;
+            }
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission !== "granted") {
+                    alert("Push-Berechtigung wurde verweigert.");
+                    return;
+                }
+                alert("Push-Benachrichtigungen für PSG sind erfolgreich aktiviert!");
+            } catch (err) {
+                console.error("Fehler beim Aktivieren der Push-Benachrichtigungen:", err);
+            }
         }
 
         document.addEventListener("DOMContentLoaded", async () => {
