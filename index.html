@@ -445,7 +445,7 @@
             <div class="section-header">
                 <span id="matchdayTableHeader">Spieltag — Spiele & Ergebnisse</span>
                 <div class="flex gap-2">
-                    <button class="header-action-btn bg-emerald-700 border-emerald-500 text-white" onclick="togglePushNotifications()" id="push-btn">🔔 Push-Alarm</button>
+                    <button class="header-action-btn bg-emerald-700 border-emerald-500 text-white" onclick="requestPushPermission()">🔔 Push-Alarm</button>
                     <button onclick="refreshAllData()" class="header-action-btn">🔄 Aktualisieren</button>
                 </div>
             </div>
@@ -540,15 +540,10 @@
                     <span class="text-xs font-bold text-emerald-400">✔ Admin-Modus aktiv</span>
                     <button onclick="lockAdmin()" class="text-xs text-rose-400 hover:underline">Abmelden / Sperren</button>
                 </div>
-                <p class="text-xs text-slate-300">Hier kannst du manuell einen Test-Tor-Alarm auslösen. Dieser wird in <strong>sent_goals_psg</strong> gespeichert und im Ticker angezeigt.</p>
+                <p class="text-xs text-slate-300">Hier kannst du manuell einen Test-Push über die Edge Function auslösen.</p>
                 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <input type="text" id="testHomeTeam" value="Paris Saint-Germain" class="bg-[#0f172a] text-white text-xs border border-neutral-700 px-3 py-2 rounded-lg">
-                    <input type="text" id="testAwayTeam" value="Olympique Marseille" class="bg-[#0f172a] text-white text-xs border border-neutral-700 px-3 py-2 rounded-lg">
-                    <input type="text" id="testScorer" value="Ousmane Dembélé (78')" class="bg-[#0f172a] text-white text-xs border border-neutral-700 px-3 py-2 rounded-lg">
-                </div>
                 <div class="flex gap-3">
-                    <button onclick="triggerManualTestPush()" class="header-action-btn bg-emerald-700 border-emerald-500 text-white flex-1 py-2.5 font-bold">🚀 Test-Tor & Push in DB abfeuern</button>
+                    <button onclick="sendTestPush()" class="header-action-btn bg-emerald-700 border-emerald-500 text-white flex-1 py-2.5 font-bold">🚀 Test-Push Benachrichtigung senden</button>
                     <button onclick="clearLocalGoalsCache()" class="header-action-btn bg-neutral-800 border-neutral-600 text-slate-300 px-4">Ticker-Cache leeren</button>
                 </div>
                 <div id="adminFeedback" class="text-xs text-blue-400 hidden"></div>
@@ -803,6 +798,76 @@
             container.innerHTML = itemsToDisplay.join('');
         }
 
+        // --- PUSH-ALARM FUNKTIONEN (ANGEPASST NACH VORBILD) ---
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        async function requestPushPermission() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                alert("Push-Benachrichtigungen werden von diesem Browser leider nicht unterstützt.");
+                return;
+            }
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    alert("Die Berechtigung für Benachrichtigungen wurde verweigert.");
+                    return;
+                }
+                const registration = await navigator.serviceWorker.register('./sw.js');
+                await registration.ready;
+
+                // Verwende hier deinen passenden VAPID Public Key
+                const publicVapidKey = 'BAsnfWgySLti5LzulXfN-xI-x7UDV32LO98YXgg1qdoRY1E1Tl05QPgCvOMgfwe80cSv_K7336-dhJTgBkHUI70';
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+                });
+
+                const p256dh = subscription.getKey('p256dh') ? btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))) : '';
+                const auth = subscription.getKey('auth') ? btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth')))) : '';
+
+                // Speichern in Supabase (Tabelle push_subscriptions_psg)
+                await supabaseClient.from('push_subscriptions_psg').upsert({
+                    endpoint: subscription.endpoint,
+                    p256dh: p256dh,
+                    auth: auth,
+                    subscription: subscription.toJSON()
+                }, { onConflict: 'endpoint' });
+
+                alert("🔔 Push-Alarm erfolgreich aktiviert!");
+            } catch (error) {
+                console.error('Fehler bei der Push-Registrierung:', error);
+                alert("Fehler beim Aktivieren der Benachrichtigung: " + error.message);
+            }
+        }
+
+        async function sendTestPush() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        table: 'push_subscriptions_psg',
+                        title: "⚽ PSG Tor-Alarm",
+                        body: "Test-Alarm für Paris Saint-Germain erfolgreich ausgelöst!"
+                    })
+                });
+                if (response.ok) alert("Test-Push erfolgreich ausgelöst!");
+                else alert("Fehler von der Edge Function.");
+            } catch (e) {
+                alert("Netzwerkfehler: " + e.message);
+            }
+        }
+
         async function checkAllGoalsAndNotify(home, away, hScore, aScore, latestScorer, matchId) {
             if (!latestScorer || latestScorer.includes("Tor") || latestScorer.trim() === "⚽") return;
 
@@ -822,17 +887,30 @@
                 if (recentGoalsList.length > 5) recentGoalsList = recentGoalsList.slice(0, 5);
                 localStorage.setItem('psg_recent_goals_cache', JSON.stringify(recentGoalsList));
                 renderRecentGoalsTicker();
+            }
 
-                try {
-                    await supabaseClient.from('sent_goals_psg').insert([{ 
-                        goal_id: uniqueGoalId, 
-                        match_info: `${home} vs ${away}`, 
-                        score: `${hScore}:${aScore}`, 
-                        scorer: cleanPlayer 
-                    }]);
-                } catch (dbErr) {
-                    console.log("Fehler beim Speichern in sent_goals_psg:", dbErr);
+            try {
+                let { data: existing } = await supabaseClient
+                    .from('sent_goals_psg')
+                    .select('goal_id')
+                    .eq('goal_id', uniqueGoalId)
+                    .maybeSingle();
+
+                if (!existing) {
+                    await supabaseClient.from('sent_goals_psg').insert([{ goal_id: uniqueGoalId }]);
+                    await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
+                        method: 'POST',
+                        mode: 'cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            table: 'push_subscriptions_psg',
+                            title: `⚽ TOR! (${hScore}:${aScore})`,
+                            body: `${home} vs ${away}\nTorschütze: ${cleanPlayer}${minStr}`
+                        })
+                    });
                 }
+            } catch (dbErr) {
+                console.log("Fehler beim Tor-Push:", dbErr);
             }
         }
 
@@ -1463,83 +1541,7 @@
             if (e.target === document.getElementById('psgMatchesModal')) closePsgMatchesModal();
         }
 
-        // --- PUSH REGISTRIERUNG MIT KORREKTER SCHLÜSSEL-KONVERTIERUNG ---
-        async function togglePushNotifications() {
-            let pushBtn = document.getElementById('push-btn');
-            
-            if (!("Notification" in window)) {
-                alert("Dein Browser unterstützt keine Benachrichtigungen.");
-                return;
-            }
-            if (!("serviceWorker" in navigator)) {
-                alert("Service Worker werden in diesem Browser/Kontext nicht unterstützt.");
-                return;
-            }
-
-            try {
-                pushBtn.innerText = "⏳ Aktiviere...";
-                
-                // 1. Berechtigung anfragen
-                const permission = await Notification.requestPermission();
-                if (permission !== "granted") {
-                    alert("Push-Berechtigung wurde vom Browser verweigert.");
-                    pushBtn.innerText = "🔔 Push-Alarm";
-                    return;
-                }
-
-                // 2. Deine echte sw.js von GitHub registrieren
-                const reg = await navigator.serviceWorker.register('./sw.js');
-                await navigator.serviceWorker.ready;
-
-                if (!reg || !reg.pushManager) {
-                    throw new Error("PushManager nicht verfügbar.");
-                }
-
-                // 3. Bestehende Subscription prüfen oder neu anlegen
-                let sub = await reg.pushManager.getSubscription();
-                if (!sub) {
-                    const publicVapidKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYTU5Nxh-U';
-                    
-                    // Korrekte Konvertierung des VAPID-Keys in Uint8Array
-                    function urlBase64ToUint8Array(base64String) {
-                        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-                        const rawData = window.atob(base64);
-                        const outputArray = new Uint8Array(rawData.length);
-                        for (let i = 0; i < rawData.length; ++i) {
-                            outputArray[i] = rawData.charCodeAt(i);
-                        }
-                        return outputArray;
-                    }
-
-                    sub = await reg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
-                    });
-                }
-
-                // 4. In Supabase speichern
-                const { error } = await supabaseClient
-                    .from('push_subscriptions_psg')
-                    .insert([{ subscription: sub.toJSON() }]);
-
-                if (error) {
-                    console.log("Supabase Hinweis:", error);
-                    alert("Push im Browser aktiv! (Hinweis zur DB: " + error.message + ")");
-                } else {
-                    alert("🔔 Push-Alarm erfolgreich aktiviert & in Supabase gespeichert!");
-                }
-
-                pushBtn.innerText = "✅ Push Aktiv";
-                pushBtn.style.background = "#238636";
-            } catch (err) {
-                console.error("Push Fehler:", err);
-                alert("Push-Fehler: " + err.message);
-                pushBtn.innerText = "🔔 Push-Alarm";
-            }
-        }
-
-        // --- ADMIN LOGIN & TEST-PUSH ---
+        // --- ADMIN LOGIN & TEST ---
         function checkAdminLogin() {
             let pass = document.getElementById('adminPasswordInput').value;
             if (pass === 'admin123') {
@@ -1554,49 +1556,6 @@
             document.getElementById('adminLoginBox').classList.remove('hidden');
             document.getElementById('adminContentBox').classList.add('hidden');
             document.getElementById('adminPasswordInput').value = '';
-        }
-
-        async function triggerManualTestPush() {
-            let home = document.getElementById('testHomeTeam').value;
-            let away = document.getElementById('testAwayTeam').value;
-            let scorer = document.getElementById('testScorer').value;
-            let feedback = document.getElementById('adminFeedback');
-
-            let timeNow = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-            let uniqueTestId = 'test_' + Date.now();
-            
-            let testGoalObj = {
-                id: uniqueTestId,
-                text: `<strong>1:0</strong> — ${home} vs ${away} (${scorer}) [TEST]`,
-                time: timeNow + ' Uhr'
-            };
-
-            recentGoalsList.unshift(testGoalObj);
-            if (recentGoalsList.length > 5) recentGoalsList = recentGoalsList.slice(0, 5);
-            localStorage.setItem('psg_recent_goals_cache', JSON.stringify(recentGoalsList));
-            renderRecentGoalsTicker();
-
-            try {
-                const { error } = await supabaseClient.from('sent_goals_psg').insert([{ 
-                    goal_id: uniqueTestId, 
-                    match_info: `${home} vs ${away} (TEST)`, 
-                    score: `1:0`, 
-                    scorer: scorer 
-                }]);
-
-                feedback.classList.remove('hidden');
-                if (error) {
-                    feedback.innerHTML = `⚠️ Im Ticker angezeigt, aber DB-Fehler: ${error.message}`;
-                    feedback.style.color = '#f85149';
-                } else {
-                    feedback.innerHTML = `✅ Test-Tor erfolgreich in <strong>sent_goals_psg</strong> gespeichert & im Ticker aktiv!`;
-                    feedback.style.color = '#3fb950';
-                }
-            } catch (e) {
-                feedback.classList.remove('hidden');
-                feedback.innerHTML = `❌ Fehler: ${e.message}`;
-                feedback.style.color = '#f85149';
-            }
         }
 
         function clearLocalGoalsCache() {
