@@ -798,7 +798,7 @@
             container.innerHTML = itemsToDisplay.join('');
         }
 
-        // --- PUSH-ALARM FUNKTIONEN (ANGEPASST NACH VORBILD) ---
+        // --- PUSH-ALARM FUNKTIONEN ---
         function urlBase64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
             const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -824,7 +824,6 @@
                 const registration = await navigator.serviceWorker.register('./sw.js');
                 await registration.ready;
 
-                // Verwende hier deinen passenden VAPID Public Key
                 const publicVapidKey = 'BAsnfWgySLti5LzulXfN-xI-x7UDV32LO98YXgg1qdoRY1E1Tl05QPgCvOMgfwe80cSv_K7336-dhJTgBkHUI70';
                 const subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
@@ -834,7 +833,6 @@
                 const p256dh = subscription.getKey('p256dh') ? btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')))) : '';
                 const auth = subscription.getKey('auth') ? btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth')))) : '';
 
-                // Speichern in Supabase (Tabelle push_subscriptions_psg)
                 await supabaseClient.from('push_subscriptions_psg').upsert({
                     endpoint: subscription.endpoint,
                     p256dh: p256dh,
@@ -1365,7 +1363,6 @@
                 });
             }
 
-            // --- FORM-KÖNIG BERECHNUNG ---
             let allTeamsStats = {};
             let allTeamsList = [];
             Object.values(leagueMatches).forEach(matchList => {
