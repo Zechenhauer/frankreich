@@ -71,7 +71,7 @@
         .tickerbar-track {
             display: inline-block;
             white-space: nowrap;
-            animation: ticker-scroll 95s linear infinite;
+            animation: ticker-scroll 75s linear infinite;
             font-size: 0.88rem;
             color: #ffffff;
             font-weight: 500;
@@ -611,7 +611,7 @@
     <!-- JAVASCRIPT LOGIK -->
     <script>
         const SUPABASE_URL = 'https://lhusylpjnujlqomougmg.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_yXEueWILvAq-Vm2VfTuYyg_BIQeE1KK';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxodXN5bHBqbnVqbHFvbW91Z21nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMzA0ODIsImV4cCI6MjEwNDYwNjQ4Mn0.9ugazAA5pEdy9uSaJQWa5BMb7EwSH9d-h5K8ln_PF5A';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let currentMatchday = 7;
@@ -836,8 +836,7 @@
                 await supabaseClient.from('push_subscriptions_psg').upsert({
                     endpoint: subscription.endpoint,
                     p256dh: p256dh,
-                    auth: auth,
-                    subscription: subscription.toJSON()
+                    auth: auth
                 }, { onConflict: 'endpoint' });
 
                 alert("🔔 Push-Alarm erfolgreich aktiviert!");
@@ -855,7 +854,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         table: 'push_subscriptions_psg',
-                        title: "⚽ PSG Tor-Alarm",
+                        title: "⚽ PSG Tor-Alarm Test (1:0)",
                         body: "Test-Alarm für Paris Saint-Germain erfolgreich ausgelöst!"
                     })
                 });
@@ -866,49 +865,41 @@
             }
         }
 
-        async function checkAllGoalsAndNotify(home, away, hScore, aScore, latestScorer, matchId) {
-            if (!latestScorer || latestScorer.includes("Tor") || latestScorer.trim() === "⚽") return;
-
-            let uniqueGoalId = `${matchId}_${hScore}:${aScore}_${latestScorer}`;
-            let cleanPlayer = latestScorer.replace(/⚽\s*/, '').replace(/\(\d+['']\)/, '').replace('(Pen)', '').replace('(ET)', '').replace(/\[\d+:\d+\]/, '').trim();
-            let minStr = latestScorer.match(/\(\d+['']\)/) ? ` ${latestScorer.match(/\(\d+['']\)/)[0]}` : '';
-            let timeNow = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
-            let goalObject = {
-                id: uniqueGoalId,
-                text: `<strong>${hScore}:${aScore}</strong> — ${home} vs ${away} (${cleanPlayer}${minStr})`,
-                time: timeNow + ' Uhr'
-            };
-
-            if (!recentGoalsList.some(g => g.id === uniqueGoalId)) {
-                recentGoalsList.unshift(goalObject);
-                if (recentGoalsList.length > 5) recentGoalsList = recentGoalsList.slice(0, 5);
-                localStorage.setItem('psg_recent_goals_cache', JSON.stringify(recentGoalsList));
-                renderRecentGoalsTicker();
-            }
-
+        // --- OPTIMIERTE LIVE-TOR-PUSH-LOGIK OHNE URL-ENCODING-PROBLEME ---
+        async function triggerLiveGoalPush(matchId, home, away, homeScore, awayScore, goalText) {
             try {
-                let { data: existing } = await supabaseClient
-                    .from('sent_goals_psg')
-                    .select('goal_id')
-                    .eq('goal_id', uniqueGoalId)
-                    .maybeSingle();
+                const uniqueGoalId = `${matchId}_${homeScore}:${awayScore}_${goalText}`;
 
-                if (!existing) {
-                    await supabaseClient.from('sent_goals_psg').insert([{ goal_id: uniqueGoalId }]);
+                let { error: insertError } = await supabaseClient
+                    .from('sent_goals_psg')
+                    .insert([
+                        { 
+                            goal_id: uniqueGoalId,
+                            match_id: matchId,
+                            home_score: homeScore,
+                            away_score: awayScore
+                        }
+                    ]);
+
+                if (!insertError) {
                     await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
                         method: 'POST',
                         mode: 'cors',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             table: 'push_subscriptions_psg',
-                            title: `⚽ TOR! (${hScore}:${aScore})`,
-                            body: `${home} vs ${away}\nTorschütze: ${cleanPlayer}${minStr}`
+                            title: `🔴 Ligue 1 Tor! (${homeScore}:${awayScore})`,
+                            body: `⚽ ${goalText} (${home} vs ${away})`
                         })
                     });
+                    console.log("PSG Tor-Push erfolgreich gesendet und in DB gespeichert!");
+                } else if (insertError.code === '23505') {
+                    console.log("Dieses Tor existiert bereits in der Datenbank (Duplikat-Schutz).");
+                } else {
+                    console.error("Insert-Fehler in sent_goals_psg:", insertError);
                 }
-            } catch (dbErr) {
-                console.log("Fehler beim Tor-Push:", dbErr);
+            } catch (e) {
+                console.error("Fehler beim automatischen Live-Push:", e);
             }
         }
 
@@ -969,7 +960,7 @@
                                                 || (detail.athletesInvolved && detail.athletesInvolved[0]?.displayName)
                                                 || "";
                                             if (!playerName && detail.text) {
-                                                let cleanText = detail.text.replace(/scored.*\$/, '').trim();
+                                                let cleanText = detail.text.replace(/scored.*$/, '').trim();
                                                 if (cleanText && cleanText.toLowerCase() !== 'goal') playerName = cleanText;
                                             }
 
@@ -999,7 +990,7 @@
                                             }
 
                                             if (isGoal) {
-                                                latestScorerText = `[${runningHome}:${runningAway}] ${playerName} (${clock})`;
+                                                latestScorerText = `${playerName} (${clock})`;
                                             }
 
                                             eventsList.push({
@@ -1021,7 +1012,7 @@
                                     let prev = previousEspnScores[matchId];
                                     if (prev !== undefined && isLive) {
                                         if (homeScoreVal > prev.home || awayScoreVal > prev.away) {
-                                            checkAllGoalsAndNotify(homeComp.team.displayName, awayComp.team.displayName, homeScoreVal, awayScoreVal, latestScorerText, matchId);
+                                            triggerLiveGoalPush(matchId, homeComp.team.displayName, awayComp.team.displayName, homeScoreVal, awayScoreVal, latestScorerText || "Tor!");
                                         }
                                     }
                                     previousEspnScores[matchId] = { home: homeScoreVal, away: awayScoreVal };
