@@ -865,7 +865,7 @@
             }
         }
 
-        // --- OPTIMIERTE LIVE-TOR-PUSH-LOGIK OHNE URL-ENCODING-PROBLEME ---
+        // --- OPTIMIERTE LIVE-TOR-PUSH-LOGIK (FÄNGT AUCH BEENDETE SPIELE AB) ---
         async function triggerLiveGoalPush(matchId, home, away, homeScore, awayScore, goalText) {
             try {
                 const uniqueGoalId = `${matchId}_${homeScore}:${awayScore}_${goalText}`;
@@ -1008,15 +1008,14 @@
                                     });
                                 }
 
-                                if (homeScoreVal !== null && awayScoreVal !== null) {
+                                // --- ERWEITERTER CHECK: Greift bei Live ODER frisch beendeten Spielen ---
+                                if ((isLive || statusType === 'post') && homeScoreVal !== null && awayScoreVal !== null && (homeScoreVal > 0 || awayScoreVal > 0)) {
                                     let prev = previousEspnScores[matchId];
-                                    if (prev !== undefined && isLive) {
-                                        if (homeScoreVal > prev.home || awayScoreVal > prev.away) {
-                                            triggerLiveGoalPush(matchId, homeComp.team.displayName, awayComp.team.displayName, homeScoreVal, awayScoreVal, latestScorerText || "Tor!");
-                                        }
+                                    if (prev === undefined || homeScoreVal > prev.home || awayScoreVal > prev.away) {
+                                        triggerLiveGoalPush(matchId, homeComp.team.displayName, awayComp.team.displayName, homeScoreVal, awayScoreVal, latestScorerText || "Tor!");
                                     }
-                                    previousEspnScores[matchId] = { home: homeScoreVal, away: awayScoreVal };
                                 }
+                                previousEspnScores[matchId] = { home: homeScoreVal || 0, away: awayScoreVal || 0 };
 
                                 matches.push({
                                     home: homeComp.team.displayName,
